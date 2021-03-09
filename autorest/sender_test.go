@@ -71,6 +71,7 @@ func ExampleSendWithSender() {
 func ExampleDoRetryForAttempts() {
 	client := mocks.NewSender()
 	client.SetAndRepeatError(fmt.Errorf("Faux Error"), 10)
+	client.SetValidateRetryAttempts(true)
 
 	// Retry with backoff -- ensure returned Bodies are closed
 	r, _ := SendWithSender(client, mocks.NewRequest(),
@@ -88,6 +89,7 @@ func ExampleDoRetryForAttempts() {
 func ExampleDoErrorIfStatusCode() {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(mocks.NewResponseWithStatus("204 NoContent", http.StatusNoContent), 10)
+	client.SetValidateRetryAttempts(true)
 
 	// Chain decorators to retry the request, up to five times, if the status code is 204
 	r, _ := SendWithSender(client, mocks.NewRequest(),
@@ -367,6 +369,7 @@ func TestDoErrorUnlessStatusCodeIgnoresStatusCodes(t *testing.T) {
 
 func TestDoRetryForAttemptsStopsAfterSuccess(t *testing.T) {
 	client := mocks.NewSender()
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForAttempts(5, time.Duration(0)))
@@ -386,6 +389,7 @@ func TestDoRetryForAttemptsStopsAfterSuccess(t *testing.T) {
 func TestDoRetryForAttemptsStopsAfterAttempts(t *testing.T) {
 	client := mocks.NewSender()
 	client.SetAndRepeatError(fmt.Errorf("Faux Error"), 10)
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForAttempts(5, time.Duration(0)),
@@ -406,6 +410,7 @@ func TestDoRetryForAttemptsStopsAfterAttempts(t *testing.T) {
 func TestDoRetryForAttemptsReturnsResponse(t *testing.T) {
 	client := mocks.NewSender()
 	client.SetError(fmt.Errorf("Faux Error"))
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForAttempts(1, time.Duration(0)))
@@ -424,6 +429,7 @@ func TestDoRetryForAttemptsReturnsResponse(t *testing.T) {
 
 func TestDoRetryForDurationStopsAfterSuccess(t *testing.T) {
 	client := mocks.NewSender()
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForDuration(10*time.Millisecond, time.Duration(0)))
@@ -443,6 +449,7 @@ func TestDoRetryForDurationStopsAfterSuccess(t *testing.T) {
 func TestDoRetryForDurationStopsAfterDuration(t *testing.T) {
 	client := mocks.NewSender()
 	client.SetAndRepeatError(fmt.Errorf("Faux Error"), -1)
+	client.SetValidateRetryAttempts(true)
 
 	d := 5 * time.Millisecond
 	start := time.Now()
@@ -465,6 +472,7 @@ func TestDoRetryForDurationStopsAfterDuration(t *testing.T) {
 func TestDoRetryForDurationStopsWithinReason(t *testing.T) {
 	client := mocks.NewSender()
 	client.SetAndRepeatError(fmt.Errorf("Faux Error"), -1)
+	client.SetValidateRetryAttempts(true)
 
 	d := 5 * time.Second
 	start := time.Now()
@@ -487,6 +495,7 @@ func TestDoRetryForDurationStopsWithinReason(t *testing.T) {
 func TestDoRetryForDurationReturnsResponse(t *testing.T) {
 	client := mocks.NewSender()
 	client.SetAndRepeatError(fmt.Errorf("Faux Error"), -1)
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForDuration(10*time.Millisecond, time.Duration(0)),
@@ -724,6 +733,7 @@ func TestDoRetryForStatusCodesWithSuccess(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(mocks.NewResponseWithStatus("408 Request Timeout", http.StatusRequestTimeout), 2)
 	client.AppendResponse(mocks.NewResponseWithStatus("200 OK", http.StatusOK))
+	client.SetValidateRetryAttempts(true)
 
 	r, _ := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(5, time.Duration(2*time.Second), http.StatusRequestTimeout),
@@ -742,6 +752,7 @@ func TestDoRetryForStatusCodesWithSuccess(t *testing.T) {
 func TestDoRetryForStatusCodesWithNoSuccess(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(mocks.NewResponseWithStatus("504 Gateway Timeout", http.StatusGatewayTimeout), 5)
+	client.SetValidateRetryAttempts(true)
 
 	r, _ := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(2, time.Duration(2*time.Second), http.StatusGatewayTimeout),
@@ -759,6 +770,7 @@ func TestDoRetryForStatusCodesWithNoSuccess(t *testing.T) {
 func TestDoRetryForStatusCodes_CodeNotInRetryList(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(mocks.NewResponseWithStatus("204 No Content", http.StatusNoContent), 1)
+	client.SetValidateRetryAttempts(true)
 
 	r, _ := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(6, time.Duration(2*time.Second), http.StatusGatewayTimeout),
@@ -777,6 +789,7 @@ func TestDoRetryForStatusCodes_CodeNotInRetryList(t *testing.T) {
 func TestDoRetryForStatusCodes_RequestBodyReadError(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(mocks.NewResponseWithStatus("204 No Content", http.StatusNoContent), 2)
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequestWithCloseBody(),
 		DoRetryForStatusCodes(6, time.Duration(2*time.Second), http.StatusGatewayTimeout),
@@ -808,6 +821,7 @@ func TestDelayWithRetryAfterWithSuccess(t *testing.T) {
 	mocks.SetResponseHeader(resp, "Retry-After", fmt.Sprintf("%v", after))
 	client.AppendAndRepeatResponse(resp, retries)
 	client.AppendResponse(mocks.NewResponseWithStatus("200 OK", http.StatusOK))
+	client.SetValidateRetryAttempts(true)
 
 	d := time.Second * time.Duration(totalSecs)
 	start := time.Now()
@@ -841,6 +855,7 @@ func TestDelayWithRetryAfterWithFail(t *testing.T) {
 	mocks.SetResponseHeader(resp, "Retry-After", fmt.Sprintf("%v", after))
 	client.AppendAndRepeatResponse(resp, retries)
 	client.AppendResponse(mocks.NewResponseWithStatus("200 OK", http.StatusOK))
+	client.SetValidateRetryAttempts(true)
 
 	d := time.Second * time.Duration(totalSecs)
 	start := time.Now()
@@ -873,6 +888,7 @@ func TestDelayWithRetryAfterWithSuccessDateTime(t *testing.T) {
 	mocks.SetResponseHeader(resp, "Retry-After", resumeAt.Format(time.RFC1123))
 	client.AppendResponse(resp)
 	client.AppendResponse(mocks.NewResponseWithStatus("200 OK", http.StatusOK))
+	client.SetValidateRetryAttempts(true)
 
 	r, _ := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(1, time.Duration(time.Second), http.StatusServiceUnavailable),
@@ -912,6 +928,7 @@ func TestDoRetryForStatusCodes_NilResponseTemporaryError(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendResponse(nil)
 	client.SetError(temporaryError{message: "faux error"})
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(3, time.Duration(1*time.Second), StatusCodesForRetry...),
@@ -930,6 +947,7 @@ func TestDoRetryForStatusCodes_NilResponseTemporaryError2(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendResponse(nil)
 	client.SetError(fmt.Errorf("faux error"))
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(3, time.Duration(1*time.Second), StatusCodesForRetry...),
@@ -965,6 +983,7 @@ func TestDoRetryForStatusCodes_NilResponseFatalError(t *testing.T) {
 	client := mocks.NewSender()
 	client.AppendAndRepeatResponse(nil, retryAttempts+1)
 	client.SetAndRepeatError(fatalError{"fatal error"}, retryAttempts+1)
+	client.SetValidateRetryAttempts(true)
 
 	r, err := SendWithSender(client, mocks.NewRequest(),
 		DoRetryForStatusCodes(retryAttempts, time.Duration(1*time.Second), StatusCodesForRetry...),
@@ -986,6 +1005,7 @@ func TestDoRetryForStatusCodes_Cancel429(t *testing.T) {
 	client := mocks.NewSender()
 	resp := mocks.NewResponseWithStatus("429 Too many requests", http.StatusTooManyRequests)
 	client.AppendAndRepeatResponse(resp, retries)
+	client.SetValidateRetryAttempts(true)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(retries/2)*time.Second)
 	defer cancel()

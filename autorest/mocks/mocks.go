@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
+
+	"github.com/Azure/go-autorest/autorest"
 )
 
 // Body implements acceptable body over a string.
@@ -104,13 +107,14 @@ type response struct {
 
 // Sender implements a simple null sender.
 type Sender struct {
-	attempts       int
-	responses      []response
-	numResponses   int
-	repeatResponse []int
-	err            error
-	repeatError    int
-	emitErrorAfter int
+	attempts              int
+	responses             []response
+	numResponses          int
+	repeatResponse        []int
+	err                   error
+	repeatError           int
+	emitErrorAfter        int
+	validateRetryAttempts bool
 }
 
 // NewSender creates a new instance of Sender.
@@ -120,6 +124,17 @@ func NewSender() *Sender {
 
 // Do accepts the passed request and, based on settings, emits a response and possible error.
 func (c *Sender) Do(r *http.Request) (resp *http.Response, err error) {
+	if c.validateRetryAttempts {
+		attempt, err := strconv.Atoi(r.Header.Get(autorest.HeaderRetryAttempt))
+		if err != nil {
+			return nil, err
+		}
+
+		if attempt != c.attempts {
+			return nil, fmt.Errorf("Retry Attempt Error")
+		}
+	}
+
 	c.attempts++
 
 	if len(c.responses) > 0 {
@@ -232,6 +247,10 @@ func (c *Sender) SetEmitErrorAfter(ea int) {
 // NumResponses returns the number of responses that have been added to the sender.
 func (c *Sender) NumResponses() int {
 	return c.numResponses
+}
+
+func (c *Sender) SetValidateRetryAttempts(validateRetryAttempts bool) {
+	c.validateRetryAttempts = validateRetryAttempts
 }
 
 // T is a simple testing struct.
